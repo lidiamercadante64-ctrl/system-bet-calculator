@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Калькулятор системних ставок — 2 з 3, 3 з 4, 2 з 5</title>
+<meta name="description" content="Безкоштовний калькулятор системних ставок: введіть коефіцієнти, розмір системи та суму — отримайте кількість комбінацій і можливий виграш.">
+<style>
+	body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f4f6f8; color: #1d2733; line-height: 1.55; }
+	.wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+	h1 { font-size: 1.7rem; margin: 0 0 8px; }
+	h2 { font-size: 1.2rem; margin-top: 32px; }
+	.card { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+	.row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+	label { font-size: .9rem; color: #4a5866; }
+	input, select { font: inherit; padding: 6px 8px; border: 1px solid #c5ced6; border-radius: 6px; width: 90px; }
+	button { font: inherit; padding: 8px 16px; border: 0; border-radius: 6px; background: #1f6feb; color: #fff; cursor: pointer; }
+	table { border-collapse: collapse; width: 100%; margin-top: 16px; font-size: .95rem; }
+	td, th { border-bottom: 1px solid #e3e8ec; padding: 6px 4px; text-align: left; }
+	.result { font-size: 1.1rem; margin-top: 16px; }
+	footer { margin-top: 40px; font-size: .85rem; color: #6a7885; }
+</style>
+</head>
+<body>
+<div class="wrap">
+	<h1>Калькулятор системних ставок</h1>
+	<p>Система — це набір експресів однакового розміру з обраних подій. Калькулятор показує, скільки комбінацій буде в купоні, скільки коштує кожна і який виграш ви отримаєте за різних результатів.</p>
+
+	<div class="card">
+		<div class="row">
+			<label>Подій: <select id="n"></select></label>
+			<label>Система: <select id="k"></select></label>
+			<label>Сума, ₴: <input id="stake" type="number" value="300" min="1"></label>
+		</div>
+		<div id="events"></div>
+		<button id="calc">Розрахувати</button>
+		<div class="result" id="result"></div>
+		<table id="combos"></table>
+	</div>
+
+	<h2>Як рахується система</h2>
+	<p>Загальна сума ділиться порівну між усіма комбінаціями. Для системи «2 з 3» комбінацій три: 1+2, 1+3, 2+3. Кожна комбінація — окремий експрес. Якщо в ній програла хоча б одна подія, комбінація програє; повернення рахується з коефіцієнтом 1.</p>
+	<p>Кількість комбінацій = C(n, k). Наприклад, «3 з 5» — це 10 експресів, «2 з 6» — 15.</p>
+
+	<h2>Коли система доречна</h2>
+	<ul>
+		<li>Ви впевнені в кількох подіях, але не готові поставити все на один експрес.</li>
+		<li>Коефіцієнти подій від 1.8 і вище: на низьких коефіцієнтах система часто не окупається навіть при одному промаху.</li>
+	</ul>
+	<p>Типи ставок і те, як систему оформлюють у реальному купоні, розібрано тут: <a href="https://favbetsport.com.ua/">favbetsport.com.ua</a>.</p>
+
+	<footer>Калькулятор має довідковий характер. Ставки — лише для осіб від 21 року.</footer>
+</div>
+<script>
+	const nSel = document.getElementById('n');
+	const kSel = document.getElementById('k');
+	const eventsBox = document.getElementById('events');
+	for (let i = 3; i <= 8; i++) nSel.add(new Option(i, i));
+
+	function renderK() {
+		const n = +nSel.value;
+		kSel.innerHTML = '';
+		for (let k = 2; k < n; k++) kSel.add(new Option(k + ' з ' + n, k));
+		const old = [...eventsBox.querySelectorAll('.row')].map(r => [r.querySelector('input').value, r.querySelector('select').value]);
+		eventsBox.innerHTML = '';
+		for (let i = 0; i < n; i++) {
+			const [odd, st] = old[i] || ['1.90', 'win'];
+			eventsBox.insertAdjacentHTML('beforeend',
+				'<div class="row"><label>Подія ' + (i + 1) + ': <input type="number" step="0.01" min="1" value="' + odd + '"></label>' +
+				'<select><option value="win">виграш</option><option value="lose">програш</option><option value="void">повернення</option></select></div>');
+			eventsBox.lastChild.querySelector('select').value = st;
+		}
+	}
+
+	function combos(arr, k, start = 0, cur = [], out = []) {
+		if (cur.length === k) { out.push(cur.slice()); return out; }
+		for (let i = start; i < arr.length; i++) { cur.push(arr[i]); combos(arr, k, i + 1, cur, out); cur.pop(); }
+		return out;
+	}
+
+	function calc() {
+		const rows = [...eventsBox.querySelectorAll('.row')].map((r, i) => ({ i: i + 1, odd: +r.querySelector('input').value, st: r.querySelector('select').value }));
+		const k = +kSel.value;
+		const stake = +document.getElementById('stake').value;
+		const list = combos(rows, k);
+		const part = stake / list.length;
+		let total = 0;
+		let html = '<tr><th>Комбінація</th><th>Коеф.</th><th>Виграш, ₴</th></tr>';
+		list.forEach(c => {
+			const lost = c.some(e => e.st === 'lose');
+			const odd = c.reduce((m, e) => m * (e.st === 'void' ? 1 : e.odd), 1);
+			const win = lost ? 0 : part * odd;
+			total += win;
+			html += '<tr><td>' + c.map(e => e.i).join(' + ') + '</td><td>' + odd.toFixed(2) + '</td><td>' + win.toFixed(2) + '</td></tr>';
+		});
+		document.getElementById('combos').innerHTML = html;
+		document.getElementById('result').innerHTML = 'Комбінацій: <b>' + list.length + '</b>, по <b>' + part.toFixed(2) + ' ₴</b>. Виграш: <b>' + total.toFixed(2) + ' ₴</b> (' + (total - stake >= 0 ? '+' : '') + (total - stake).toFixed(2) + ' ₴).';
+	}
+
+	nSel.onchange = renderK;
+	document.getElementById('calc').onclick = calc;
+	renderK();
+</script>
+</body>
+</html>
